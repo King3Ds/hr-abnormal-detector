@@ -18,4 +18,5 @@ uvicorn api.main:app --reload --port 8000
 # 4) open the UI (points to http://localhost:8000)
 # double-click web/index.html# hr-abnormal-detector
 
-![Uploading Screenshot 2025-09-02 at 4.23.39 PM.png…]()
+
+<img width="1497" height="926" alt="Screenshot 2025-09-02 at 4 27 50 PM" src="https://github.com/user-attachments/assets/d3a41bea-64ad-453b-94a5-f024782402fe" />
