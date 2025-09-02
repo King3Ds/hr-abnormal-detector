@@ -18,6 +18,4 @@ uvicorn api.main:app --reload --port 8000
 # 4) open the UI (points to http://localhost:8000)
 # double-click web/index.html# hr-abnormal-detector
 
-
-![Heart Rate Abnormality Detector](https://github.com/user-attachments/assets/d3a41bea-64ad-453b-94a5-f024782402fe)
-
+![Heart Rate Abnormality Detector Screenshot](https://github.com/user-attachments/assets/d3a41bea-64ad-453b-94a5-f024782402fe)
