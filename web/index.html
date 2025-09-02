@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HR Abnormality Detector</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+      .row { display: flex; gap: 16px; flex-wrap: wrap; }
+      .pill { padding: 2px 8px; border-radius: 999px; background: #eef2ff; font-size: 12px; }
+      .episode { padding: 8px 12px; border-radius: 12px; background: #f1f5f9; margin: 6px 0; }
+      canvas { max-width: 100%; }
+      .muted { color: #6b7280; }
+      .btn { background: #111827; color: white; padding: 10px 14px; border: none; border-radius: 10px; cursor: pointer; }
+      .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .episodes-box { max-height: 380px; overflow: auto; }
+      .filters { display: flex; gap: 10px; margin: 8px 0 12px; flex-wrap: wrap; }
+      .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid #e5e7eb; cursor: pointer; user-select: none; }
+      .chip input { accent-color: #111827; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  </head>
+  <body>
+    <h1>Heart Rate Abnormality Detector</h1>
+    <p class="muted">Upload a CSV (<code>timestamp,hr</code>) or the Kaggle Fitbit <code>heartrate_seconds_merged.csv</code>. The model will detect episodes and plot HR against the correct timeline.</p>
+
+    <div class="card">
+      <input id="file" type="file" accept=".csv,.csv.gz,.zip" />
+      <button id="btn" class="btn">Analyze</button>
+      <span id="status" class="pill muted"></span>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:2 1 600px">
+        <h3>Heart Rate</h3>
+        <canvas id="chart" height="120"></canvas>
+      </div>
+      <div class="card" style="flex:1 1 340px">
+        <h3>Episodes</h3>
+        <div class="filters">
+          <label class="chip"><input type="checkbox" class="flt" value="normal" checked> Normal</label>
+          <label class="chip"><input type="checkbox" class="flt" value="brady" checked> Brady</label>
+          <label class="chip"><input type="checkbox" class="flt" value="tachy" checked> Tachy</label>
+          <label class="chip"><input type="checkbox" class="flt" value="irregular" checked> Irregular</label>
+        </div>
+        <div id="episodes" class="episodes-box"></div>
+      </div>
+    </div>
+
+    <script>
+      const apiBase = 'http://127.0.0.1:8000';
+      const fileEl = document.getElementById('file');
+      const btn = document.getElementById('btn');
+      const statusEl = document.getElementById('status');
+      const episodesEl = document.getElementById('episodes');
+      const filterEls = Array.from(document.querySelectorAll('.flt'));
+      let chart, lastData = null;
+
+      filterEls.forEach(cb => cb.addEventListener('change', () => {
+        if (lastData) renderEpisodes(lastData.episodes);
+      }));
+
+      btn.onclick = async () => {
+        const file = fileEl.files && fileEl.files[0];
+        if (!file) { alert('Pick a CSV first.'); return; }
+        btn.disabled = true; statusEl.textContent = 'Uploading...';
+        const form = new FormData(); form.append('file', file);
+        try {
+          const res = await fetch(apiBase + '/predict', { method:'POST', body: form });
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          statusEl.textContent = '';
+          lastData = data;
+          renderChart(data.series);     // series is [{x: ISO, y: number}]
+          renderEpisodes(data.episodes);
+        } catch (e) {
+          console.error(e);
+          alert('Request failed. Make sure the backend is running on http://127.0.0.1:8000');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      function renderChart(points) {
+        const ctx = document.getElementById('chart').getContext('2d');
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [{
+              label: 'HR (bpm)',
+              data: points,               // [{x: "YYYY-MM-DDTHH:mm:ssZ", y: 72}, ...]
+              borderWidth: 1,
+              fill: false,
+              pointRadius: 0
+            }]
+          },
+          options: {
+            animation: false,
+            parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+            scales: {
+              x: { type: 'time', time: { tooltipFormat: 'PPpp' } },
+              y: { beginAtZero: false }
+            },
+            plugins: { legend: { display: true } }
+          }
+        });
+      }
+
+      function renderEpisodes(episodes) {
+        const active = new Set(filterEls.filter(cb => cb.checked).map(cb => cb.value));
+        episodesEl.innerHTML = '';
+        const visible = episodes.filter(e => active.has(e.label));
+        if (visible.length === 0) {
+          episodesEl.innerHTML = '<div class="muted">No episodes (or all filtered out).</div>';
+          return;
+        }
+        for (const ep of visible) {
+          const d = document.createElement('div');
+          d.className = 'episode';
+          d.innerHTML = '<b>' + ep.label + '</b><br/>' +
+                        new Date(ep.start).toLocaleString() + ' → ' +
+                        new Date(ep.end).toLocaleString() +
+                        '<br/><span class="muted">conf: ' + ep.confidence.toFixed(2) + '</span>';
+          episodesEl.appendChild(d);
+        }
+      }
+    </script>
+  </body>
+</html>

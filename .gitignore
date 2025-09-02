@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Envs
+.venv/
+.env
+.env.*
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Data & artifacts
+data/
+*.csv
+!sample_heartrate.csv    # keep the tiny demo CSV
+*.gz
+*.zip
+
+# Models (keep if you prefer instant run)
+models/*.pt
+models/*.joblib
+# If you want to keep models in git, delete the two lines above.
